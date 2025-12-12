@@ -10,7 +10,7 @@ import { getSpeechRecognitionLanguage } from './utils/languageUtils';
 import { translateAndSpeak, translateText, generateConversationReply } from './services/geminiService';
 import { decodeBase64, decodeAudioData } from './services/audioUtils';
 import { audioQueue } from './services/audioQueue';
-import { ArrowLeft, AudioWaveform } from 'lucide-react';
+import { ArrowLeft, AudioWaveform, Volume2, VolumeX } from 'lucide-react';
 
 // Mock Contacts Data
 const MOCK_CONTACTS: User[] = [
@@ -38,6 +38,7 @@ export default function App() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true); // Output Audio State
   const [isTranslating, setIsTranslating] = useState(false);
   const [speakingUserId, setSpeakingUserId] = useState<string | null>(null);
 
@@ -54,9 +55,24 @@ export default function App() {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioQueue.setAudioContext(audioCtxRef.current);
     }
-    if (audioCtxRef.current.state === 'suspended') {
+    if (audioCtxRef.current.state === 'suspended' && isSpeakerOn) {
       audioCtxRef.current.resume();
     }
+  };
+
+  // Toggle Speaker (Output)
+  const toggleSpeaker = () => {
+    setIsSpeakerOn(prev => {
+      const newState = !prev;
+      if (audioCtxRef.current) {
+        if (newState) {
+          audioCtxRef.current.resume();
+        } else {
+          audioCtxRef.current.suspend();
+        }
+      }
+      return newState;
+    });
   };
 
   // --- Profile & Dashboard Handlers ---
@@ -65,7 +81,7 @@ export default function App() {
     setCurrentUser(user);
     const demoGroup: Group = {
       id: 'g1',
-      name: 'Global Team Meeting',
+      name: 'Developers Team',
       members: [user, MOCK_CONTACTS[0]],
       messages: [],
       lastActive: Date.now()
@@ -334,26 +350,37 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden" onClick={initAudio}>
       
-      {/* Sleek Header (Floating) */}
-      <header className="absolute top-0 left-0 right-0 h-24 flex items-start pt-6 justify-between px-6 z-40 bg-gradient-to-b from-slate-900/90 to-transparent pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-4">
-          <button onClick={handleEndCall} className="p-3 bg-white/5 hover:bg-white/10 backdrop-blur-xl rounded-full transition-colors text-white border border-white/5">
-             <ArrowLeft size={20} />
+      {/* Sleek Header (Floating) - Mobile Optimized */}
+      <header className="absolute top-0 left-0 right-0 h-20 md:h-24 flex items-start pt-4 md:pt-6 justify-between px-4 md:px-6 z-40 bg-gradient-to-b from-slate-900/90 to-transparent pointer-events-none">
+        <div className="pointer-events-auto flex items-center gap-3 md:gap-4">
+          <button onClick={handleEndCall} className="p-2 md:p-3 bg-white/5 hover:bg-white/10 backdrop-blur-xl rounded-full transition-colors text-white border border-white/5">
+             <ArrowLeft size={18} className="md:w-5 md:h-5" />
           </button>
           <div>
              <div className="flex items-center gap-2">
-                 <h1 className="text-2xl font-light tracking-tight text-white drop-shadow-md">{activeGroup.name}</h1>
+                 <h1 className="text-lg md:text-2xl font-light tracking-tight text-white drop-shadow-md truncate max-w-[150px] md:max-w-xs">{activeGroup.name}</h1>
                  {isListening && <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_10px_#4ade80]" />}
              </div>
-             <p className="text-xs text-white/60 font-light tracking-wide">
-                 Orbitz Secure Audio • {participants.length === 1 ? participants[0].language : 'Conference'}
+             <p className="text-[10px] md:text-xs text-white/60 font-light tracking-wide truncate">
+                 {participants.length === 1 ? participants[0].language : 'Group'}
              </p>
           </div>
         </div>
         
-        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-indigo-500/10 backdrop-blur-xl rounded-full border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
-           <AudioWaveform className="w-4 h-4 text-indigo-300" />
-           <span className="text-xs font-medium text-indigo-100 uppercase tracking-widest">Live</span>
+        {/* Right Actions: Speaker Toggle & Live Badge */}
+        <div className="pointer-events-auto flex items-center gap-2">
+           {/* Speaker Toggle */}
+           <button 
+             onClick={toggleSpeaker}
+             className={`p-2 rounded-full backdrop-blur-xl transition-all border ${isSpeakerOn ? 'bg-white/10 text-white border-white/10' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}
+           >
+              {isSpeakerOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+           </button>
+
+           <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-indigo-500/10 backdrop-blur-xl rounded-full border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
+              <AudioWaveform className="w-3 h-3 md:w-4 md:h-4 text-indigo-300" />
+              <span className="text-[10px] md:text-xs font-medium text-indigo-100 uppercase tracking-widest">Live</span>
+           </div>
         </div>
       </header>
 

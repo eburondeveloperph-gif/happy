@@ -45,7 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="h-screen bg-slate-950 flex overflow-hidden text-slate-100 font-light">
-      {/* Sidebar - Contacts */}
+      {/* Sidebar - Contacts (Hidden on Mobile) */}
       <div className="w-80 bg-slate-900/50 border-r border-white/5 flex flex-col hidden md:flex backdrop-blur-sm">
         <div className="p-8 border-b border-white/5">
           <div className="flex items-center gap-4 mb-8">
@@ -98,13 +98,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="flex-1 flex flex-col bg-slate-950 relative">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 via-slate-950 to-slate-950 pointer-events-none" />
         
-        <div className="p-8 flex justify-between items-center relative z-10">
-          <h1 className="text-3xl font-light tracking-tight text-white">Chats</h1>
-          <div className="relative w-72">
+        {/* Header - Stacks on mobile */}
+        <div className="p-6 md:p-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4 relative z-10">
+          <div className="flex justify-between items-center">
+             <h1 className="text-3xl font-light tracking-tight text-white">Chats</h1>
+             {/* Mobile Only 'New' Button */}
+             <button onClick={() => setIsCreating(true)} className="md:hidden p-2 bg-indigo-600 rounded-full text-white">
+                <MessageSquarePlus size={20} />
+             </button>
+          </div>
+          <div className="relative w-full md:w-72">
             <Search className="absolute left-4 top-3.5 text-slate-500 w-4 h-4" />
             <input 
               type="text" 
-              placeholder="Search conversations..." 
+              placeholder="Search..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white/5 border border-white/5 rounded-2xl pl-10 pr-4 py-3 text-sm text-white focus:bg-white/10 focus:border-indigo-500/30 outline-none transition-all"
@@ -112,47 +119,48 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 p-8 overflow-y-auto relative z-10">
+        {/* Group List */}
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto relative z-10">
           {filteredGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-slate-500 border-2 border-dashed border-white/5 rounded-3xl">
+            <div className="flex flex-col items-center justify-center h-64 text-slate-500 border-2 border-dashed border-white/5 rounded-3xl mx-2">
               <MessageSquarePlus size={48} className="mb-4 opacity-30" />
               <p className="font-light">No active conversations</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 pb-20 md:pb-0">
               {filteredGroups.map(group => (
-                <div key={group.id} className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-6 hover:bg-white/[0.04] transition-all group relative hover:shadow-2xl hover:shadow-indigo-500/5">
+                <div key={group.id} className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-5 md:p-6 hover:bg-white/[0.04] transition-all group relative hover:shadow-2xl hover:shadow-indigo-500/5">
                   <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-300 rounded-2xl flex items-center justify-center shadow-inner border border-white/5">
-                        <Users size={24} strokeWidth={1.5} />
+                    <div className="flex items-center gap-3 md:gap-4">
+                      <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-300 rounded-2xl flex items-center justify-center shadow-inner border border-white/5 shrink-0">
+                        <Users size={22} strokeWidth={1.5} />
                       </div>
-                      <div>
-                        <h3 className="font-medium text-white text-lg tracking-wide">{group.name}</h3>
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-white text-base md:text-lg tracking-wide truncate">{group.name}</h3>
                         <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">{group.members.length} participants</p>
                       </div>
                     </div>
                     <button 
                        onClick={() => onDeleteGroup(group.id)}
-                       className="text-slate-600 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-all rounded-full hover:bg-white/5"
+                       className="text-slate-600 hover:text-red-400 p-2 transition-all rounded-full hover:bg-white/5"
                     >
                         <Trash2 size={18} />
                     </button>
                   </div>
                   
-                  <div className="flex items-center justify-between mt-8">
-                     <div className="flex -space-x-3">
+                  <div className="flex items-center justify-between mt-6 md:mt-8">
+                     <div className="flex -space-x-3 overflow-hidden">
                         {group.members.slice(0, 4).map((m, i) => (
-                           <div key={i} className="w-10 h-10 rounded-full bg-slate-800 border-4 border-slate-950 flex items-center justify-center text-lg shadow-lg" title={m.name}>
+                           <div key={i} className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-slate-800 border-4 border-slate-950 flex items-center justify-center text-sm md:text-lg shadow-lg shrink-0" title={m.name}>
                               {m.avatar}
                            </div>
                         ))}
                      </div>
                      <button 
                         onClick={() => onJoinGroup(group)}
-                        className="bg-white/5 hover:bg-indigo-600 hover:text-white text-indigo-300 border border-indigo-500/30 px-6 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all"
+                        className="bg-white/5 hover:bg-indigo-600 hover:text-white text-indigo-300 border border-indigo-500/30 px-5 py-2 md:px-6 md:py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all whitespace-nowrap"
                      >
-                        <Video size={16} strokeWidth={2} /> Join Call
+                        <Video size={16} strokeWidth={2} /> <span className="hidden sm:inline">Join Call</span> <span className="sm:hidden">Join</span>
                      </button>
                   </div>
                 </div>
@@ -162,11 +170,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Soft Modal for Create Group */}
+      {/* Soft Modal for Create Group - Mobile Responsive */}
       {isCreating && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900/90 border border-white/10 rounded-[2rem] p-8 w-full max-w-md shadow-2xl backdrop-blur-xl">
-            <h2 className="text-2xl font-light text-white mb-6">New Group Chat</h2>
+          <div className="bg-slate-900/90 border border-white/10 rounded-[2rem] p-6 md:p-8 w-full max-w-md shadow-2xl backdrop-blur-xl animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl md:text-2xl font-light text-white mb-6">New Group Chat</h2>
             
             <div className="space-y-6 mb-8">
               <div>
