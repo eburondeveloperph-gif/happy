@@ -3,13 +3,14 @@ import { VideoStage } from './components/VideoStage';
 import { ControlBar } from './components/ControlBar';
 import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
+import { CallHistory } from './components/CallHistory';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { Language, ChatMessage, User, Group, MessageStatus } from './types';
 import { getSpeechRecognitionLanguage } from './utils/languageUtils';
 import { translateAndSpeak, translateText, generateConversationReply } from './services/geminiService';
 import { decodeBase64, decodeAudioData } from './services/audioUtils';
 import { audioQueue } from './services/audioQueue';
-import { MessageSquare, Sparkles, ArrowLeft, Check, CheckCheck } from 'lucide-react';
+import { ArrowLeft, AudioWaveform } from 'lucide-react';
 
 // Mock Contacts Data
 const MOCK_CONTACTS: User[] = [
@@ -26,6 +27,7 @@ const MOCK_CONTACTS: User[] = [
 export default function App() {
   // Navigation State
   const [view, setView] = useState<'profile' | 'dashboard' | 'call'>('profile');
+  const [showHistory, setShowHistory] = useState(false);
   
   // Data State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -41,7 +43,6 @@ export default function App() {
 
   // Audio Context
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Helpers
   const activeGroup = groups.find(g => g.id === activeGroupId);
@@ -87,6 +88,7 @@ export default function App() {
   const handleJoinGroup = (group: Group) => {
     setActiveGroupId(group.id);
     setView('call');
+    setShowHistory(false); // Reset history view on join
     startCamera();
   };
 
@@ -127,6 +129,7 @@ export default function App() {
     audioQueue.clear();
     setView('dashboard');
     setActiveGroupId(null);
+    setShowHistory(false);
   };
 
   const handleMyLanguageChange = (lang: Language) => {
@@ -139,7 +142,6 @@ export default function App() {
 
   const startCamera = async () => {
     try {
-      // Voice Focus: Advanced Audio Constraints
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: {
@@ -201,18 +203,13 @@ export default function App() {
       status: 'sending'
     };
     
+    // Log to history
     updateGroupMessages(activeGroupId, newMessage);
-    
-    // DELAYS: Simulate network
     setTimeout(() => updateMessageStatus(activeGroupId, messageId, 'sent'), 500);
-    setTimeout(() => updateMessageStatus(activeGroupId, messageId, 'delivered'), 1000);
 
-    // LOGIC: I speak -> Translate to Target Language for Visuals -> NO AUDIO for me.
-    // The "Other Person" logic is simulated below.
     try {
       const targetUser = participants[0]; // 1:1 assumption
       if (targetUser && targetUser.language !== currentUser.language) {
-         // Translate my text to THEIR language just for the record/visuals (if we were showing their view)
          const translatedForThem = await translateText(text, targetUser.language);
          if (translatedForThem) {
              setGroups(prev => prev.map(g => {
@@ -225,8 +222,7 @@ export default function App() {
          }
       }
 
-      // TRIGGER REMOTE REPLY (Simulation of 1:1 conversation)
-      // This is what generates the audio I WILL hear.
+      // Trigger Reply
       triggerRemoteReply(text, activeGroupId);
 
     } catch (err) {
@@ -242,14 +238,13 @@ export default function App() {
       const targetUser = participants[0];
       if (!currentUser || !targetUser) return;
 
-      // Wait a bit to simulate thinking/network
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       setIsTranslating(true);
-      setSpeakingUserId(targetUser.id); // Visual indicator on their video
+      setSpeakingUserId(targetUser.id);
 
       try {
-          // A. Generate Reply in THEIR language
+          // A. Generate Reply
           const remoteReplyText = await generateConversationReply(userText, targetUser.name, targetUser.language);
           
           if (remoteReplyText) {
@@ -258,18 +253,17 @@ export default function App() {
                   id: replyId,
                   senderId: targetUser.id,
                   senderName: targetUser.name,
-                  text: remoteReplyText, // This is in Spanish/French etc.
+                  text: remoteReplyText,
                   timestamp: Date.now(),
                   status: 'delivered'
               };
               
               updateGroupMessages(groupId, replyMessage);
 
-              // B. Translate Reply to MY language AND Generate Audio
+              // B. Translate & Speak
               const result = await translateAndSpeak(remoteReplyText, currentUser.language, true);
 
               if (result) {
-                  // Update UI with translation
                   setGroups(prev => prev.map(g => {
                       if (g.id !== groupId) return g;
                       return {
@@ -278,7 +272,6 @@ export default function App() {
                       };
                   }));
 
-                  // C. PLAY AUDIO (Queue) - This is the ONLY audio I hear
                   if (result.audioData) {
                       initAudio();
                       if (audioCtxRef.current) {
@@ -297,18 +290,15 @@ export default function App() {
       }
   };
 
-  // Use dynamic language for Speech Recognition
   const { 
     isListening, 
     startListening, 
     stopListening, 
-    transcript: interimTranscript 
   } = useSpeechRecognition(
     currentUser ? getSpeechRecognitionLanguage(currentUser.language) : 'en-US', 
     handleFinalTranscript
   );
 
-  // Mic Logic
   useEffect(() => {
     if (view === 'call' && isMicOn) {
       startListening();
@@ -316,11 +306,6 @@ export default function App() {
       stopListening();
     }
   }, [view, isMicOn, startListening, stopListening]);
-
-  // Auto-scroll
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeGroup?.messages, interimTranscript]);
 
 
   // --- Render Views ---
@@ -349,75 +334,48 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden" onClick={initAudio}>
       
-      {/* Messenger Header */}
-      <header className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+      {/* Sleek Header (Floating) */}
+      <header className="absolute top-0 left-0 right-0 h-24 flex items-start pt-6 justify-between px-6 z-40 bg-gradient-to-b from-slate-900/90 to-transparent pointer-events-none">
         <div className="pointer-events-auto flex items-center gap-4">
-          <button onClick={handleEndCall} className="p-2 bg-white/10 hover:bg-white/20 backdrop-blur rounded-full transition-colors text-white">
+          <button onClick={handleEndCall} className="p-3 bg-white/5 hover:bg-white/10 backdrop-blur-xl rounded-full transition-colors text-white border border-white/5">
              <ArrowLeft size={20} />
           </button>
-          <div className="flex flex-col shadow-sm">
-             <h1 className="text-lg font-bold tracking-tight text-white drop-shadow-md">{activeGroup.name}</h1>
-             <div className="flex items-center gap-2 text-xs text-white/80 drop-shadow-md">
-                 <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                 {participants.length === 1 ? participants[0].language : 'Group Call'}
+          <div>
+             <div className="flex items-center gap-2">
+                 <h1 className="text-2xl font-light tracking-tight text-white drop-shadow-md">{activeGroup.name}</h1>
+                 {isListening && <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_10px_#4ade80]" />}
              </div>
+             <p className="text-xs text-white/60 font-light tracking-wide">
+                 Orbitz Secure Audio • {participants.length === 1 ? participants[0].language : 'Conference'}
+             </p>
           </div>
+        </div>
+        
+        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-indigo-500/10 backdrop-blur-xl rounded-full border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
+           <AudioWaveform className="w-4 h-4 text-indigo-300" />
+           <span className="text-xs font-medium text-indigo-100 uppercase tracking-widest">Live</span>
         </div>
       </header>
 
-      {/* Main Content Area - Fullscreen Style */}
-      <div className="flex-1 flex overflow-hidden relative">
+      {/* Main Content Area - Clean, Full Screen */}
+      <div className="flex-1 flex overflow-hidden relative bg-slate-950">
+        <VideoStage 
+          localStream={localStream}
+          isVideoEnabled={isVideoOn}
+          isAudioEnabled={isMicOn}
+          currentUser={currentUser}
+          participants={participants}
+          speakingUserId={speakingUserId}
+        />
         
-        {/* Main Stage (Remote) */}
-        <div className="flex-1 bg-slate-900 relative">
-            <VideoStage 
-              localStream={localStream}
-              isVideoEnabled={isVideoOn}
-              isAudioEnabled={isMicOn}
-              currentUser={currentUser}
-              participants={participants}
-              speakingUserId={speakingUserId}
+        {/* History Modal Overlay */}
+        {showHistory && (
+            <CallHistory 
+                group={activeGroup} 
+                currentUser={currentUser} 
+                onClose={() => setShowHistory(false)} 
             />
-            
-            {/* Overlay Transcript (Subtitles style) */}
-            <div className="absolute bottom-32 left-0 right-0 px-6 flex flex-col items-center gap-2 z-10 pointer-events-none">
-                {/* Remote Speaking Indicator & Text */}
-                {speakingUserId && speakingUserId !== currentUser.id && (
-                     <div className="max-w-2xl w-full">
-                        <div className="flex items-center gap-2 mb-2">
-                           <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs border border-white/20 shadow-lg">
-                              {participants[0]?.avatar}
-                           </div>
-                           <span className="text-xs font-bold text-white/80 shadow-black drop-shadow-md">{participants[0]?.name}</span>
-                        </div>
-                        {activeGroup.messages.length > 0 && activeGroup.messages[activeGroup.messages.length - 1].senderId !== currentUser.id && (
-                             <div className="bg-black/60 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-center shadow-xl">
-                                  <p className="text-lg font-medium text-white">
-                                      {activeGroup.messages[activeGroup.messages.length - 1].translatedText || activeGroup.messages[activeGroup.messages.length - 1].text}
-                                  </p>
-                                  {activeGroup.messages[activeGroup.messages.length - 1].translatedText && (
-                                     <p className="text-xs text-white/50 mt-1">
-                                        (Original: {activeGroup.messages[activeGroup.messages.length - 1].text})
-                                     </p>
-                                  )}
-                             </div>
-                        )}
-                     </div>
-                )}
-                
-                {/* My Live Transcript */}
-                {isListening && interimTranscript && (
-                    <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-full border border-indigo-500/30 text-indigo-200 text-lg font-medium shadow-xl">
-                         {interimTranscript}...
-                    </div>
-                )}
-            </div>
-        </div>
-
-        {/* Sidebar (Hidden on Mobile/Messenger Style, strictly speaking, but keeping visible for desktop history) */}
-        {/* We can hide this for a cleaner "Messenger Call" look, or make it toggleable. 
-            For this request "Make UI like messenger call", full screen video is key. 
-            I will hide the sidebar to maximize the view, relying on the overlay subtitles. */}
+        )}
       </div>
 
       {/* Controls */}
@@ -431,6 +389,7 @@ export default function App() {
         myLanguage={currentUser.language}
         onMyLanguageChange={handleMyLanguageChange}
         localStream={localStream}
+        onToggleHistory={() => setShowHistory(!showHistory)}
       />
     </div>
   );
