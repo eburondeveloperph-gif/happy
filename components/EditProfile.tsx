@@ -64,18 +64,22 @@ export const EditProfile: React.FC<EditProfileProps> = ({ user, onSave, onCancel
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    // Optimistic Update
+    const updatedUser = { ...user, name, language, avatar };
+    onSave(updatedUser);
+
     try {
         const { error } = await supabase
             .from('profiles')
             .update({ name, language, avatar })
             .eq('id', user.id);
 
-        if (error) throw error;
-
-        onSave({ ...user, name, language, avatar });
+        if (error) {
+             console.warn("Backend sync failed", error);
+        }
     } catch(e) {
-        console.error("Error updating profile", e);
-        alert("Failed to update profile. The image might be too large or there was a connection error.");
+        console.warn("Backend sync error", e);
     } finally {
         setLoading(false);
     }

@@ -201,6 +201,28 @@ export default function App() {
     setLoadingInitial(false);
   };
 
+  const handleUpdateUser = (updatedUser: User) => {
+      // 1. Update State
+      setCurrentUser(updatedUser);
+      
+      // 2. Persist Local
+      try {
+        localStorage.setItem('orbitz_user', JSON.stringify(updatedUser));
+      } catch (e) {
+        console.warn("LocalStorage save failed", e);
+      }
+
+      // 3. Attempt Backend Sync (Best Effort)
+      supabase.from('profiles').update({
+          name: updatedUser.name,
+          language: updatedUser.language,
+          avatar: updatedUser.avatar
+      }).eq('id', updatedUser.id)
+      .then(({ error }) => {
+          if (error) console.warn("Background profile sync failed (harmless if offline):", error.message);
+      });
+  };
+
   const handleUpdatePreferences = (key: string, value: any) => {
       setPreferences(prev => ({ ...prev, [key]: value }));
   };
@@ -445,9 +467,6 @@ export default function App() {
     } catch (err) { console.error(err); }
     
     setTimeout(() => setSpeakingUserId(null), 1500);
-
-    // REMOVED: Conversational AI reply logic triggered here.
-    // The user explicitly requested "Do not make the AI speak back as a conversational AI."
     
   }, [activeGroupId, currentUser, isMyTranslatorMuted, groups, isDirectVoice]);
 
@@ -518,7 +537,7 @@ export default function App() {
                     isOpen={isSettingsOpen} 
                     onClose={() => setIsSettingsOpen(false)}
                     currentUser={currentUser}
-                    onUpdateUser={setCurrentUser}
+                    onUpdateUser={handleUpdateUser} // Changed to local storage persisting function
                     preferences={preferences}
                     onUpdatePreferences={handleUpdatePreferences}
                 />
@@ -552,15 +571,9 @@ export default function App() {
           isVisible={true} // Top bar handles its own idle visual state internally or we can pass !isIdle
           currentUser={currentUser}
           participants={participants}
-          onLanguageChange={async (lang) => {
+          onLanguageChange={(lang) => {
               const updated = { ...currentUser, language: lang };
-              setCurrentUser(updated);
-              try {
-                localStorage.setItem('orbitz_user', JSON.stringify(updated));
-              } catch (e) {
-                console.warn("LocalStorage Quota Exceeded during language update.", e);
-              }
-              try { await supabase.from('profiles').update({ language: lang }).eq('id', currentUser.id); } catch(e){}
+              handleUpdateUser(updated); // Use centralized handler
           }}
           isRecording={isRecording}
           onToggleRecording={() => setIsRecording(!isRecording)}
@@ -589,7 +602,7 @@ export default function App() {
               isOpen={isSettingsOpen} 
               onClose={() => setIsSettingsOpen(false)}
               currentUser={currentUser}
-              onUpdateUser={setCurrentUser}
+              onUpdateUser={handleUpdateUser} // Use centralized handler
               preferences={preferences}
               onUpdatePreferences={handleUpdatePreferences}
           />

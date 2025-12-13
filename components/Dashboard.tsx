@@ -28,27 +28,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [joinId, setJoinId] = useState('');
 
   const handleNewMeeting = () => {
-    // Generate a new session instantly
-    const newSessionId = uuidv4().slice(0, 8); // Short ID for demo
+    const newSessionId = uuidv4().slice(0, 8); 
     onCreateGroup(`Session ${newSessionId}`, [currentUser]);
   };
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinId.trim()) return;
-    
-    // Check if group exists in local state
     const existing = groups.find(g => g.name.includes(joinId) || g.id === joinId);
-    
     if (existing) {
         onJoinGroup(existing);
     } else {
-        // Mock join: Create a placeholder group reference to "Join"
-        // In a real app, this would query Supabase for the ID
         const mockGroup: Group = {
             id: joinId,
             name: `Session ${joinId}`,
-            members: [currentUser], // Will add self
+            members: [currentUser],
             messages: [],
             lastActive: Date.now()
         };
@@ -68,81 +62,87 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="h-screen flex flex-col items-center relative overflow-hidden font-sans text-white">
       
       {/* Top Bar */}
-      <div className="w-full flex justify-between items-center p-6 z-20">
-          <div className="flex items-center gap-3 bg-white/5 p-1.5 pr-4 rounded-full border border-white/5 backdrop-blur-md cursor-pointer hover:bg-white/10 transition-colors" onClick={onEditProfile}>
-             <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10">
+      <div className="w-full flex justify-between items-center p-8 z-20">
+          <div 
+            className="flex items-center gap-4 bg-zinc-950/60 p-2 pr-6 rounded-full border border-white/10 backdrop-blur-xl cursor-pointer hover:bg-white/5 transition-all group" 
+            onClick={onEditProfile}
+          >
+             <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 border border-white/5 group-hover:border-indigo-500/50 transition-colors">
                 {renderAvatar(currentUser.avatar)}
              </div>
-             <span className="text-sm font-medium text-zinc-200">{currentUser.name}</span>
+             <span className="text-sm font-medium text-zinc-200 tracking-wide">{currentUser.name}</span>
           </div>
           
-          <button onClick={onEditProfile} className="p-3 bg-white/5 rounded-full border border-white/5 text-zinc-300 hover:text-white transition-colors hover:bg-white/10 group">
-              <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500" />
+          <button onClick={onEditProfile} className="p-3 bg-zinc-950/60 rounded-full border border-white/10 text-zinc-400 hover:text-white transition-colors hover:bg-white/5 backdrop-blur-xl shadow-lg">
+              <Settings size={22} />
           </button>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg px-6 z-10 -mt-10">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-2xl px-6 z-10 -mt-20">
           
           {/* Time/Date Aesthetic */}
-          <div className="text-center mb-16">
-              <h1 className="text-7xl font-light tracking-tighter text-white drop-shadow-2xl">
+          <div className="text-center mb-20">
+              <h1 className="text-8xl md:text-9xl font-light tracking-tighter text-white text-glow mb-4">
                   {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </h1>
-              <p className="text-zinc-400 uppercase tracking-widest text-xs mt-4 font-medium">
+              <p className="text-indigo-400 uppercase tracking-[0.3em] text-xs font-bold">
                   {new Date().toLocaleDateString([], {weekday: 'long', month: 'long', day: 'numeric'})}
               </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-6 w-full">
+          <div className="grid grid-cols-2 gap-8 w-full">
               
               {/* New Meeting */}
               <button 
                 onClick={handleNewMeeting}
-                className="flex flex-col items-center justify-center gap-4 bg-orange-600/90 hover:bg-orange-500 p-8 rounded-[2rem] shadow-[0_20px_40px_rgba(234,88,12,0.2)] transition-all hover:scale-[1.02] active:scale-95 group backdrop-blur-sm border border-orange-500/20"
+                className="flex flex-col items-center justify-center gap-6 bg-zinc-900/40 hover:bg-zinc-800/60 p-10 rounded-[2.5rem] border border-white/10 backdrop-blur-xl transition-all hover:scale-[1.02] active:scale-95 group hover:border-orange-500/30 hover:shadow-[0_0_40px_rgba(234,88,12,0.1)]"
               >
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                      <Video size={32} className="text-white" />
+                  <div className="w-20 h-20 bg-orange-500/10 rounded-3xl flex items-center justify-center border border-orange-500/20 group-hover:bg-orange-500/20 transition-colors">
+                      <Video size={36} className="text-orange-500" />
                   </div>
-                  <span className="font-medium text-lg">New Session</span>
+                  <div className="text-center">
+                    <span className="font-medium text-xl block mb-1">New Orbit</span>
+                    <span className="text-xs text-zinc-500 font-light">Start instant session</span>
+                  </div>
               </button>
 
               {/* Join */}
               <button 
                 onClick={() => setShowJoinModal(true)}
-                className="flex flex-col items-center justify-center gap-4 bg-indigo-600/90 hover:bg-indigo-500 p-8 rounded-[2rem] shadow-[0_20px_40px_rgba(79,70,229,0.2)] transition-all hover:scale-[1.02] active:scale-95 group backdrop-blur-sm border border-indigo-500/20"
+                className="flex flex-col items-center justify-center gap-6 bg-zinc-900/40 hover:bg-zinc-800/60 p-10 rounded-[2.5rem] border border-white/10 backdrop-blur-xl transition-all hover:scale-[1.02] active:scale-95 group hover:border-indigo-500/30 hover:shadow-[0_0_40px_rgba(99,102,241,0.1)]"
               >
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                      <PlusSquare size={32} className="text-white" />
+                  <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors">
+                      <PlusSquare size={36} className="text-indigo-400" />
                   </div>
-                  <span className="font-medium text-lg">Join Session</span>
+                  <div className="text-center">
+                    <span className="font-medium text-xl block mb-1">Join Orbit</span>
+                    <span className="text-xs text-zinc-500 font-light">Enter session ID</span>
+                  </div>
               </button>
           </div>
-
-          <p className="mt-12 text-zinc-400 text-sm text-center max-w-xs leading-relaxed">
-             Start a new translation session or join an existing orbit ID to begin communicating.
-          </p>
-
       </div>
 
       {/* Join Modal */}
       {showJoinModal && (
-          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-200">
-              <div className="w-full max-w-sm bg-zinc-900/90 border border-white/10 rounded-[2rem] p-8 shadow-2xl relative backdrop-blur-2xl">
-                  <h2 className="text-2xl font-light text-white mb-6 text-center">Join Session</h2>
-                  <form onSubmit={handleJoin} className="space-y-4">
+          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+              <div className="w-full max-w-md bg-zinc-950/80 border border-white/10 rounded-[2.5rem] p-10 shadow-[0_0_100px_rgba(0,0,0,0.8)] relative backdrop-blur-2xl">
+                  <h2 className="text-3xl font-light text-white mb-2 text-center tracking-tight">Join Session</h2>
+                  <p className="text-zinc-500 text-center mb-8 text-sm">Enter the unique identifier for the orbit.</p>
+                  
+                  <form onSubmit={handleJoin} className="space-y-6">
                       <input 
                         type="text" 
                         value={joinId}
                         onChange={(e) => setJoinId(e.target.value)}
-                        placeholder="Enter Session ID"
-                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-4 text-center text-lg outline-none focus:border-indigo-500 transition-all placeholder:text-zinc-600 text-white"
+                        placeholder="Orbit ID"
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-5 text-center text-xl outline-none focus:border-indigo-500/50 transition-all placeholder:text-zinc-700 text-white font-light tracking-wide"
                         autoFocus
                       />
-                      <div className="grid grid-cols-2 gap-3 pt-4">
-                          <button type="button" onClick={() => setShowJoinModal(false)} className="py-3 rounded-xl bg-white/5 text-zinc-400 hover:bg-white/10 font-medium transition-colors">Cancel</button>
-                          <button type="submit" className="py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 font-medium shadow-lg shadow-indigo-500/20 transition-colors">Join</button>
+                      <div className="grid grid-cols-2 gap-4">
+                          <button type="button" onClick={() => setShowJoinModal(false)} className="py-4 rounded-2xl bg-white/5 text-zinc-400 hover:bg-white/10 font-medium transition-colors border border-white/5">Cancel</button>
+                          <button type="submit" className="py-4 rounded-2xl bg-indigo-600 text-white hover:bg-indigo-500 font-medium shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-colors">Connect</button>
                       </div>
                   </form>
               </div>

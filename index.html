@@ -9,9 +9,9 @@
     <style>
       body { 
         font-family: 'Inter', sans-serif; 
-        background-color: #020617; /* Slate 950 Fallback */
+        background-color: #000000; /* Pure Black Base */
         color: white; 
-        overflow: hidden; /* Prevent body scroll for draggable elements */
+        overflow: hidden; 
       }
       /* Custom scrollbar for chat logs */
       .scrollbar-hide::-webkit-scrollbar {
@@ -22,10 +22,10 @@
           scrollbar-width: none;
       }
 
-      /* Premium Wavy Background Animation */
+      /* Premium Wavy Background Animation - Deep Space */
       .ambient-wave {
-        /* Deep, rich gradient: Slate 950 -> Indigo 950 -> Violet 950 -> Slate 900 */
-        background: linear-gradient(-45deg, #020617, #1e1b4b, #2e1065, #0f172a);
+        /* Deep, rich gradient: Black -> Dark Slate -> Deep Purple -> Black */
+        background: linear-gradient(-45deg, #000000, #0f172a, #3b0764, #000000);
         background-size: 400% 400%;
         animation: gradientWave 20s ease infinite;
       }
@@ -37,7 +37,14 @@
       }
       
       .text-glow {
-        text-shadow: 0 0 30px rgba(255,255,255,0.3);
+        text-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+      }
+      
+      /* Glass Utility */
+      .glass-panel {
+        background: rgba(24, 24, 27, 0.6);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
       }
     </style>
   <script type="importmap">
