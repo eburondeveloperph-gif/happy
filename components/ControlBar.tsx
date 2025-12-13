@@ -1,9 +1,15 @@
-import React from 'react';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Globe, History } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  Mic, MicOff, Video, VideoOff, PhoneOff, Globe, 
+  Sparkles, Volume2, VolumeX, Monitor, MonitorOff, 
+  Users, Captions, CaptionsOff, Zap, ZapOff,
+  Calendar, Mail, HardDrive, MessageSquare, Disc, Settings
+} from 'lucide-react';
 import { Language } from '../types';
 import { AudioVisualizer } from './AudioVisualizer';
 
 interface ControlBarProps {
+  isVisible: boolean; // Controls visibility from parent
   isMicOn: boolean;
   isVideoOn: boolean;
   isTranslating: boolean;
@@ -13,10 +19,62 @@ interface ControlBarProps {
   myLanguage: Language;
   onMyLanguageChange: (lang: Language) => void;
   localStream: MediaStream | null;
+  isMyTranslatorMuted: boolean;
+  onToggleMyTranslatorMute: () => void;
+  
+  // New Props
+  isScreenSharing: boolean;
+  onToggleScreenShare: () => void;
+  showParticipants: boolean;
+  onToggleParticipants: () => void;
+  showCaptions: boolean;
+  onToggleCaptions: () => void;
+  isDirectVoice: boolean;
+  onToggleDirectVoice: () => void;
+  onGoogleAction: (action: 'calendar' | 'gmail' | 'drive') => void;
   onToggleHistory: () => void;
+  isRecording: boolean;
+  onToggleRecording: () => void;
+  onOpenSettings: () => void;
 }
 
+const DockButton: React.FC<{
+  onClick: () => void;
+  active?: boolean;
+  icon: React.ReactNode;
+  label: string;
+  danger?: boolean;
+  primary?: boolean;
+  className?: string;
+}> = ({ onClick, active = false, icon, label, danger, primary, className = '' }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  let bgClass = "bg-white/5 text-zinc-300 border-transparent hover:bg-white/10";
+  if (active) bgClass = primary ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-white/20 text-white";
+  if (danger) bgClass = "bg-red-500 text-white shadow-lg shadow-red-500/20 hover:bg-red-400";
+  if (active && danger) bgClass = "bg-red-600 text-white"; // Red state override
+
+  return (
+    <div className="relative flex flex-col items-center group">
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`relative w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 ease-out transform ${isHovered ? 'scale-125 -translate-y-2 mx-2 z-10' : 'scale-100 mx-0'} ${bgClass} ${className} border border-white/5`}
+        aria-label={label}
+      >
+        {icon}
+      </button>
+      {/* Tooltip */}
+      <div className={`absolute -top-10 px-2 py-1 bg-black/80 backdrop-blur rounded text-[10px] text-white whitespace-nowrap opacity-0 transition-opacity duration-200 pointer-events-none ${isHovered ? 'opacity-100' : ''}`}>
+        {label}
+      </div>
+    </div>
+  );
+};
+
 export const ControlBar: React.FC<ControlBarProps> = ({
+  isVisible,
   isMicOn,
   isVideoOn,
   isTranslating,
@@ -26,95 +84,130 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   myLanguage,
   onMyLanguageChange,
   localStream,
-  onToggleHistory
+  isMyTranslatorMuted,
+  onToggleMyTranslatorMute,
+  isScreenSharing,
+  onToggleScreenShare,
+  showParticipants,
+  onToggleParticipants,
+  showCaptions,
+  onToggleCaptions,
+  isDirectVoice,
+  onToggleDirectVoice,
+  onGoogleAction,
+  onToggleHistory,
+  isRecording,
+  onToggleRecording,
+  onOpenSettings
 }) => {
   return (
-    <div className="absolute bottom-6 left-4 right-4 z-50 flex justify-center pointer-events-none">
+    <div className={`absolute bottom-8 left-0 right-0 z-50 flex justify-center pointer-events-none transition-all duration-700 transform ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}>
         {/* Main Floating Dock */}
-        <div className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-3xl sm:rounded-full px-4 py-3 sm:py-2 shadow-2xl pointer-events-auto w-full max-w-sm sm:max-w-lg">
+        <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-6 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.5)] pointer-events-auto flex items-end gap-2 max-w-[95vw] overflow-visible">
           
-          {/* Mobile: Strict 5-Col Grid for perfect alignment. Desktop: Flex */}
-          <div className="grid grid-cols-5 gap-2 items-center justify-items-center sm:flex sm:justify-between sm:gap-4">
-            
-            {/* 1. History (Preserved) */}
-            <button
-              onClick={onToggleHistory}
-              className="w-12 h-12 flex items-center justify-center rounded-2xl sm:rounded-full bg-white/5 hover:bg-white/10 text-slate-200 transition-all active:scale-95 border border-transparent hover:border-white/5"
-              title="View History"
-            >
-              <History size={20} strokeWidth={2} />
-            </button>
-
-            {/* 2. Language */}
-            <div className="relative group flex justify-center w-full">
-              <button className="w-12 h-12 flex items-center justify-center rounded-2xl sm:rounded-full bg-white/5 hover:bg-white/10 text-slate-200 transition-all active:scale-95 border border-transparent hover:border-white/5">
-                  <Globe size={20} strokeWidth={2} />
-              </button>
-              
-              {/* Popup Menu */}
-              <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 w-64 max-w-[80vw] bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden hidden group-hover:block animate-in slide-in-from-bottom-2 fade-in duration-200 z-50">
-                  <div className="p-3 border-b border-white/5 bg-white/5">
-                      <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest text-center sm:text-left">Incoming Language</p>
-                  </div>
-                  <div className="max-h-56 overflow-y-auto p-1 scrollbar-hide">
-                      {Object.values(Language).map((lang) => (
-                          <button 
-                              key={lang} 
-                              onClick={() => onMyLanguageChange(lang)}
-                              className={`w-full text-left px-3 py-2.5 text-sm rounded-xl hover:bg-white/10 transition-all ${myLanguage === lang ? 'text-white bg-indigo-600/30 font-medium' : 'text-slate-300 font-light'}`}
-                          >
-                              {lang}
-                          </button>
-                      ))}
-                  </div>
-              </div>
-            </div>
-
-            {/* 3. Mic */}
-            <button
-              onClick={onToggleMic}
-              className={`w-12 h-12 flex items-center justify-center rounded-2xl sm:rounded-full transition-all duration-300 active:scale-95 ${
-                isMicOn 
-                  ? 'bg-white/10 hover:bg-white/20 text-white border border-transparent hover:border-white/5' 
-                  : 'bg-red-500/10 text-red-400 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
-              }`}
-            >
-              {isMicOn ? <Mic size={20} strokeWidth={2} /> : <MicOff size={20} strokeWidth={2} />}
-            </button>
-
-            {/* 4. Video */}
-            <button
-              onClick={onToggleVideo}
-              className={`w-12 h-12 flex items-center justify-center rounded-2xl sm:rounded-full transition-all duration-300 active:scale-95 ${
-                isVideoOn 
-                  ? 'bg-white/10 hover:bg-white/20 text-white border border-transparent hover:border-white/5' 
-                  : 'bg-red-500/10 text-red-400 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
-              }`}
-            >
-              {isVideoOn ? <Video size={20} strokeWidth={2} /> : <VideoOff size={20} strokeWidth={2} />}
-            </button>
-
-            {/* 5. End Call */}
-            <button
-              onClick={onEndCall}
-              className="w-12 h-12 flex items-center justify-center rounded-2xl sm:rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/40 transition-all duration-300 active:scale-95 hover:scale-105"
-            >
-              <PhoneOff size={22} strokeWidth={2} fill="currentColor" />
-            </button>
-
-            {/* Visualizer (Desktop Only) */}
-            <div className="hidden sm:flex w-24 md:w-32 h-10 sm:h-12 bg-black/20 rounded-full items-center justify-center border border-white/5 overflow-hidden px-2 relative ml-2">
-                  <div className={`absolute inset-0 opacity-20 transition-opacity duration-500 ${isMicOn ? 'bg-indigo-500 blur-lg' : ''}`}></div>
-                  {localStream && isMicOn ? (
-                      <div className="relative z-10 opacity-90 scale-75 sm:scale-100">
-                        <AudioVisualizer stream={localStream} isActive={isMicOn} color={isTranslating ? '#c4b5fd' : '#818cf8'} />
-                      </div>
-                  ) : (
-                      <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest relative z-10">Muted</div>
-                  )}
-            </div>
-
+          {/* Group 1: Output Controls */}
+          <div className="flex items-center gap-1">
+             <DockButton 
+                onClick={onToggleDirectVoice}
+                active={isDirectVoice}
+                icon={isDirectVoice ? <Zap size={20} /> : <ZapOff size={20} />}
+                label={isDirectVoice ? "Direct Voice Mode" : "AI Translation Mode"}
+                primary={isDirectVoice}
+             />
+             <DockButton 
+                onClick={onToggleMyTranslatorMute}
+                active={!isMyTranslatorMuted}
+                icon={isMyTranslatorMuted ? <VolumeX size={20} /> : <Sparkles size={20} />}
+                label={isMyTranslatorMuted ? "Unmute My Translation" : "Mute My Translation"}
+                primary={!isMyTranslatorMuted}
+             />
           </div>
+
+          <div className="w-px h-10 bg-white/10 mx-2 self-center" />
+
+          {/* Group 2: Features */}
+           <div className="flex items-center gap-1">
+              <DockButton 
+                  onClick={onToggleScreenShare}
+                  active={isScreenSharing}
+                  icon={isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+                  label="Screen Share"
+                  primary={isScreenSharing}
+              />
+              <DockButton 
+                  onClick={onToggleRecording}
+                  active={isRecording}
+                  icon={<Disc size={20} className={isRecording ? 'animate-pulse' : ''} />}
+                  label="Record Session"
+                  danger={isRecording}
+              />
+              <DockButton 
+                  onClick={onToggleHistory}
+                  icon={<MessageSquare size={20} />}
+                  label="Chat History"
+              />
+              <DockButton 
+                  onClick={onToggleCaptions}
+                  active={showCaptions}
+                  icon={showCaptions ? <Captions size={20} /> : <CaptionsOff size={20} />}
+                  label="Captions"
+              />
+              <DockButton 
+                  onClick={onToggleParticipants}
+                  active={showParticipants}
+                  icon={<Users size={20} />}
+                  label="Participants"
+              />
+           </div>
+
+           <div className="w-px h-10 bg-white/10 mx-2 self-center" />
+
+           {/* Integrations Mini Group */}
+           <div className="flex items-center gap-1">
+               <DockButton onClick={() => onGoogleAction('calendar')} icon={<Calendar size={18} />} label="Calendar" />
+               <DockButton onClick={() => onOpenSettings()} icon={<Settings size={18} />} label="Settings" />
+           </div>
+
+          {/* Visualizer (Middle - Hidden on small screens or incorporated nicely) */}
+          <div className="hidden lg:flex w-32 h-14 bg-black/40 rounded-2xl items-center justify-center border border-white/5 overflow-hidden px-2 relative mx-4 self-center shadow-inner">
+              <div className={`absolute inset-0 opacity-20 transition-opacity duration-500 ${isMicOn ? 'bg-indigo-500 blur-xl' : ''}`}></div>
+              {localStream && isMicOn ? (
+                  <div className="relative z-10 opacity-90">
+                    <AudioVisualizer stream={localStream} isActive={isMicOn} color={isTranslating ? '#c4b5fd' : '#818cf8'} />
+                  </div>
+              ) : (
+                  <div className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest relative z-10">Muted</div>
+              )}
+          </div>
+
+          {/* Group 3: Core Media */}
+          <div className="flex items-center gap-2 pl-2">
+            <DockButton 
+                onClick={onToggleMic}
+                active={isMicOn}
+                icon={isMicOn ? <Mic size={22} /> : <MicOff size={22} />}
+                label={isMicOn ? "Mute Microphone" : "Unmute Microphone"}
+                className={!isMicOn ? "bg-red-500/10 text-red-500 border-red-500/20" : ""}
+            />
+            <DockButton 
+                onClick={onToggleVideo}
+                active={isVideoOn}
+                icon={isVideoOn ? <Video size={22} /> : <VideoOff size={22} />}
+                label={isVideoOn ? "Stop Video" : "Start Video"}
+                className={!isVideoOn ? "bg-red-500/10 text-red-500 border-red-500/20" : ""}
+            />
+            
+            <div className="ml-2">
+                <DockButton 
+                    onClick={onEndCall}
+                    icon={<PhoneOff size={24} />}
+                    label="Leave Call"
+                    danger
+                    className="w-14 h-14 rounded-2xl"
+                />
+            </div>
+          </div>
+
         </div>
     </div>
   );

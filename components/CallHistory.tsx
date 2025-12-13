@@ -38,13 +38,14 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ group, currentUser, on
                          <span className="text-[10px]">{new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                       </div>
                       
-                      <p className="leading-relaxed text-base font-light">{msg.text}</p>
+                      {/* Added whitespace-pre-wrap to support lyrics/stanzas */}
+                      <p className="leading-relaxed text-base font-light whitespace-pre-wrap">{msg.text}</p>
                       
                       {msg.translatedText && (
                          <div className="mt-3 pt-3 border-t border-white/10">
                             <p className="text-xs opacity-70 flex gap-2 items-start">
                                <Sparkles size={12} className="mt-0.5 shrink-0 text-indigo-400" />
-                               <span className="italic font-light">"{msg.translatedText}"</span>
+                               <span className="italic font-light whitespace-pre-wrap">"{msg.translatedText}"</span>
                             </p>
                          </div>
                       )}

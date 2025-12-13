@@ -14,8 +14,33 @@ export interface TranslationResult {
   translatedText: string;
 }
 
+// --- VOICE MIRROR PROTOCOL CONFIGURATION ---
+// Defines the "Live Pipeline" behavior for style matching
+const VOICE_MIRROR_SYSTEM_INSTRUCTION = (targetLanguage: Language) => `
+You are a high-fidelity real-time voice translator. 
+TARGET LANGUAGE: ${targetLanguage}.
+
+*** STRICT TRANSLATION ONLY ***
+
+OBJECTIVE:
+Translate the user's input text into ${targetLanguage}. 
+Do NOT reply to the user. Do NOT answer questions. Do NOT engage in conversation.
+Your ONLY job is to convert the input text to the target language while preserving the original prosody and emotion.
+
+1. **PROSODY & SPEED ANALYSIS**:
+   - **Fast/Urgent**: Translate using punchy, short words.
+   - **Slow/Thoughtful**: Translate using flowing, descriptive words.
+
+2. **INTENSITY & EMOTION**:
+   - **High Intensity** (CAPS, strong words): Use powerful, emotive vocabulary.
+   - **Low Intensity** (Lowercase, soft words): Use gentle, polite vocabulary.
+
+OUTPUT:
+Return ONLY the translated text.
+`;
+
 /**
- * Translates text from one language to another.
+ * Translates text from one language to another, preserving style.
  * Returns only text (no audio).
  */
 export async function translateText(
@@ -24,11 +49,14 @@ export async function translateText(
 ): Promise<string | null> {
   try {
     const ai = getAiClient();
-    const translationPrompt = `Translate the following text into ${targetLanguage}. Output ONLY the translated text. Text: "${text}"`;
     
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: translationPrompt,
+      contents: `Input Audio Transcript: "${text}"`,
+      config: {
+        systemInstruction: VOICE_MIRROR_SYSTEM_INSTRUCTION(targetLanguage),
+        temperature: 0.3, // Lower temperature for more accurate translation
+      },
     });
 
     return response.text?.trim() || null;
@@ -43,7 +71,7 @@ export async function translateText(
  */
 export async function generateSpeech(
   text: string,
-  voiceName: string = "Fenrir" // Fenrir, Puck, Kore, Zephyr
+  voiceName: string = "Fenrir" // Fenrir, Puck, Kore, Zephyr, Charon
 ): Promise<string | null> {
   try {
     const ai = getAiClient();
@@ -54,7 +82,9 @@ export async function generateSpeech(
         responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName }
+            prebuiltVoiceConfig: { 
+              voiceName,
+            }
           }
         }
       },
@@ -72,22 +102,24 @@ export async function generateSpeech(
 }
 
 /**
- * Translates text and optionally generates audio.
+ * Translates text and optionally generates audio with specific voice.
+ * Acts as the main "Live Pipeline" function for the application.
  */
 export async function translateAndSpeak(
   text: string,
   targetLanguage: Language,
-  shouldGenerateAudio: boolean = true
+  shouldGenerateAudio: boolean = true,
+  voiceName: string = "Fenrir"
 ): Promise<TranslationResult | null> {
   try {
-    // Step 1: Translate
+    // Step 1: Translate (with Voice Mirroring)
     const translatedText = await translateText(text, targetLanguage);
     if (!translatedText) throw new Error("Translation failed");
 
     // Step 2: Audio (Optional)
     let audioData = null;
     if (shouldGenerateAudio) {
-       audioData = await generateSpeech(translatedText);
+       audioData = await generateSpeech(translatedText, voiceName);
     }
 
     return {
@@ -97,37 +129,6 @@ export async function translateAndSpeak(
 
   } catch (error) {
     console.error("Gemini Service Error:", error);
-    return null;
-  }
-}
-
-/**
- * Simulates a remote user replying to the conversation.
- * 1. Generates a text response in the REMOTE user's language.
- */
-export async function generateConversationReply(
-  lastMessage: string,
-  personaName: string,
-  personaLanguage: Language
-): Promise<string | null> {
-  try {
-    const ai = getAiClient();
-    const prompt = `
-      You are roleplaying as ${personaName}, a person who speaks ${personaLanguage}.
-      The user just said: "${lastMessage}".
-      Reply naturally to the user in ${personaLanguage}.
-      Keep the reply short, casual, and conversational (1-2 sentences max).
-      Output ONLY the reply text.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
-
-    return response.text?.trim() || null;
-  } catch (error) {
-    console.error("Reply Generation Error:", error);
     return null;
   }
 }

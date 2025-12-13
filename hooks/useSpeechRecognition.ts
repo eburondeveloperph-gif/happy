@@ -11,12 +11,16 @@ interface SpeechRecognitionHook {
 
 export const useSpeechRecognition = (
   languageCode: string,
-  onFinalTranscript?: (text: string) => void
+  mediaStream: MediaStream | null, // Added to capture audio
+  onFinalTranscript?: (text: string, audioBlob?: Blob) => void
 ): SpeechRecognitionHook => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
+  
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Update language dynamically if it changes while listening
   useEffect(() => {
@@ -42,12 +46,12 @@ export const useSpeechRecognition = (
     recognitionRef.current.onstart = () => {
       setIsListening(true);
       setError(null);
+      startRecording();
     };
 
     recognitionRef.current.onend = () => {
-      // Auto-restart if it stops but state says listening (unless explicitly stopped)
-      // For simplicity in this hook, we just sync state
       setIsListening(false);
+      stopRecording();
     };
 
     recognitionRef.current.onError = (event: any) => {
@@ -55,6 +59,7 @@ export const useSpeechRecognition = (
       if (event.error === 'not-allowed') {
         setError("Microphone access denied.");
         setIsListening(false);
+        stopRecording();
       }
     };
 
@@ -72,9 +77,11 @@ export const useSpeechRecognition = (
 
       setTranscript(interimTranscript);
 
-      if (finalTranscriptChunk && onFinalTranscript) {
-        onFinalTranscript(finalTranscriptChunk.trim());
-        setTranscript(''); // Clear interim after final is processed
+      if (finalTranscriptChunk) {
+        // When we get a final transcript, we want to grab the audio recorded SO FAR
+        // and send it.
+        handleFinalResult(finalTranscriptChunk.trim());
+        setTranscript(''); 
       }
     };
 
@@ -82,8 +89,64 @@ export const useSpeechRecognition = (
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      stopRecording();
     };
-  }, [onFinalTranscript]); // Re-init if callback changes, usually stable. Language change handled in separate effect.
+  }, []); // Init only once
+
+  // --- Audio Recording Logic ---
+  
+  const startRecording = () => {
+    if (!mediaStream) return;
+    try {
+      // Create new recorder
+      const recorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+    } catch (e) {
+      console.warn("MediaRecorder failed", e);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleFinalResult = (finalText: string) => {
+    // To synchronize audio with text, we stop the current recorder,
+    // gather the blob, and immediately restart it for the next sentence.
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.requestData(); // Flush
+        mediaRecorderRef.current.stop();
+        
+        // Wait briefly for the stop event to process the last chunk
+        setTimeout(() => {
+            const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            
+            if (onFinalTranscript) {
+                onFinalTranscript(finalText, blob);
+            }
+
+            // Restart for next phrase if we are still listening
+            if (isListening && mediaStream) {
+                startRecording();
+            }
+        }, 100);
+    } else {
+        // Fallback if recorder wasn't running
+        if (onFinalTranscript) onFinalTranscript(finalText);
+    }
+  };
+
 
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
@@ -96,7 +159,7 @@ export const useSpeechRecognition = (
   }, [isListening]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) { // Allow stopping even if isListening false (force stop)
+    if (recognitionRef.current) { 
       recognitionRef.current.stop();
     }
   }, []);

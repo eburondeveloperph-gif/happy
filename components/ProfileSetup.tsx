@@ -1,109 +1,253 @@
 import React, { useState } from 'react';
-import { User as UserIcon, ArrowRight, AudioWaveform } from 'lucide-react';
+import { ArrowRight, Mail, Lock, User as UserIcon, Loader2, Globe, Sparkles } from 'lucide-react';
 import { Language, User } from '../types';
+import { supabase } from '../lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ProfileSetupProps {
   onComplete: (user: User) => void;
 }
 
-const AVATARS = ['👨‍💻', '👩‍💻', '🐯', '🐼', '🦊', '👽', '🤖', '🤠'];
+type AuthMode = 'signin' | 'signup' | 'forgot_password';
 
 export const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
-  const [name, setName] = useState('');
-  const [language, setLanguage] = useState<Language>(Language.ENGLISH);
-  const [avatar, setAvatar] = useState(AVATARS[0]);
+  const [mode, setMode] = useState<AuthMode>('signin');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+
+  // Email Auth Logic
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
 
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      avatar,
-      language
-    };
-    onComplete(newUser);
+    try {
+      if (mode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+              avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`
+            }
+          }
+        });
+        if (error) throw error;
+        if (data.user) {
+             // If auto-confirm is on, App.tsx will catch the session.
+             // If email confirm is required:
+             setMessage("Account created! Please check your email to confirm.");
+        }
+      } 
+      else if (mode === 'signin') {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (error) throw error;
+        // App.tsx handles onAuthStateChange
+      }
+      else if (mode === 'forgot_password') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        setMessage("Password reset link sent to your email.");
+      }
+    } catch (err: any) {
+      console.error("Auth Error:", err);
+      setError(err.message || "An error occurred during authentication.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
-      {/* Background Ambience */}
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_0%,_#312e81_0%,_#0f172a_50%)] pointer-events-none" />
+    <div className="min-h-screen w-full flex font-sans ambient-wave">
       
-      <div className="w-full max-w-md bg-slate-900/60 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl relative z-10">
-        <div className="flex flex-col items-center gap-4 mb-10">
-            <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.3)] border border-indigo-500/30">
-              <AudioWaveform className="text-indigo-400 w-8 h-8" />
+      {/* LEFT SIDE - AUTH FORM */}
+      <div className="w-full md:w-[480px] lg:w-[550px] flex flex-col justify-center px-8 sm:px-12 md:px-16 border-r border-white/5 bg-slate-950/90 backdrop-blur-xl relative z-20 shadow-[20px_0_50px_rgba(0,0,0,0.5)]">
+         
+         <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex items-center gap-3 mb-6">
+                <img 
+                    src="https://orbitzzz.vercel.app/icons/logo.png" 
+                    alt="Orbitz Logo" 
+                    className="w-12 h-12"
+                />
+                <span className="text-2xl font-semibold tracking-tight text-white">Orbitz</span>
             </div>
-            <h1 className="text-4xl font-light text-white tracking-tight">Orbitz</h1>
-            <p className="text-slate-400 text-sm">Universal Translation Messenger</p>
-        </div>
+            <h1 className="text-4xl font-light text-white tracking-tight mb-2">
+                {mode === 'signin' && 'Welcome back'}
+                {mode === 'signup' && 'Create account'}
+                {mode === 'forgot_password' && 'Reset Password'}
+            </h1>
+            <p className="text-zinc-400 font-light">
+                {mode === 'signin' && 'Enter your details to access your workspace.'}
+                {mode === 'signup' && 'Get started with your free account today.'}
+                {mode === 'forgot_password' && 'Enter your email to receive a reset link.'}
+            </p>
+         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Avatar Selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 text-center">Choose Avatar</label>
-            <div className="flex gap-3 justify-center flex-wrap">
-              {AVATARS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setAvatar(emoji)}
-                  className={`w-12 h-12 text-2xl rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                    avatar === emoji 
-                      ? 'bg-indigo-600 scale-110 shadow-lg shadow-indigo-500/40 rotate-3' 
-                      : 'bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
+         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
+             
+             {/* Auth Form */}
+             <form onSubmit={handleAuth} className="space-y-4">
+                 
+                 {mode === 'signup' && (
+                    <div className="group">
+                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2 pl-1">Full Name</label>
+                        <div className="relative">
+                            <UserIcon className="absolute left-4 top-3.5 text-zinc-500 w-4 h-4 transition-colors group-focus-within:text-indigo-400" />
+                            <input
+                                type="text"
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                placeholder="John Doe"
+                                className="w-full bg-black/40 text-white rounded-xl pl-10 pr-4 py-3.5 border border-white/10 focus:border-indigo-500/50 focus:bg-black/60 outline-none transition-all placeholder:text-zinc-700 font-light text-sm"
+                                required
+                            />
+                        </div>
+                    </div>
+                 )}
 
-          {/* Name Input */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Display Name</label>
-            <div className="relative group">
-              <UserIcon className="absolute left-4 top-3.5 text-slate-500 w-5 h-5 group-focus-within:text-indigo-400 transition-colors" />
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your name"
-                className="w-full bg-black/20 text-white rounded-2xl pl-12 pr-4 py-3 border border-white/10 focus:border-indigo-500/50 focus:bg-black/40 outline-none transition-all placeholder:text-slate-600"
-                required
-              />
-            </div>
-          </div>
+                 <div className="group">
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2 pl-1">Email Address</label>
+                    <div className="relative">
+                        <Mail className="absolute left-4 top-3.5 text-zinc-500 w-4 h-4 transition-colors group-focus-within:text-indigo-400" />
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="name@company.com"
+                            className="w-full bg-black/40 text-white rounded-xl pl-10 pr-4 py-3.5 border border-white/10 focus:border-indigo-500/50 focus:bg-black/60 outline-none transition-all placeholder:text-zinc-700 font-light text-sm"
+                            required
+                        />
+                    </div>
+                 </div>
 
-          {/* Language Selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">I speak</label>
-            <div className="relative">
-                <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as Language)}
-                className="w-full bg-black/20 text-white rounded-2xl px-5 py-3 border border-white/10 focus:border-indigo-500/50 focus:bg-black/40 outline-none transition-all appearance-none cursor-pointer hover:bg-white/5"
-                >
-                {Object.values(Language).map((lang) => (
-                    <option key={lang} value={lang} className="bg-slate-900">{lang}</option>
-                ))}
-                </select>
-                <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500">▼</div>
-            </div>
-          </div>
+                 {mode !== 'forgot_password' && (
+                    <div className="group">
+                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2 pl-1">Password</label>
+                        <div className="relative">
+                            <Lock className="absolute left-4 top-3.5 text-zinc-500 w-4 h-4 transition-colors group-focus-within:text-indigo-400" />
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                className="w-full bg-black/40 text-white rounded-xl pl-10 pr-4 py-3.5 border border-white/10 focus:border-indigo-500/50 focus:bg-black/60 outline-none transition-all placeholder:text-zinc-700 font-light text-sm"
+                                required
+                            />
+                        </div>
+                    </div>
+                 )}
 
-          <button
-            type="submit"
-            disabled={!name.trim()}
-            className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-4 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-500/25 mt-4 group"
-          >
-            Start Messaging <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-          </button>
-        </form>
+                 {/* Feedback Messages */}
+                 {error && (
+                     <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs text-center">
+                         {error}
+                     </div>
+                 )}
+                 {message && (
+                     <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-xs text-center">
+                         {message}
+                     </div>
+                 )}
+
+                 {mode === 'signin' && (
+                     <div className="flex justify-end">
+                         <button type="button" onClick={() => setMode('forgot_password')} className="text-xs text-zinc-400 hover:text-white transition-colors">
+                             Forgot password?
+                         </button>
+                     </div>
+                 )}
+
+                 <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 mt-2"
+                 >
+                    {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (
+                        <>
+                            {mode === 'signin' && 'Sign In'}
+                            {mode === 'signup' && 'Create Account'}
+                            {mode === 'forgot_password' && 'Send Reset Link'}
+                            {mode !== 'forgot_password' && <ArrowRight size={16} />}
+                        </>
+                    )}
+                 </button>
+             </form>
+         </div>
+
+         <div className="mt-12 text-center text-sm text-zinc-400 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
+             {mode === 'signin' ? (
+                 <>
+                    Don't have an account?{' '}
+                    <button onClick={() => setMode('signup')} className="text-white font-medium hover:underline">
+                        Sign up
+                    </button>
+                 </>
+             ) : (
+                 <>
+                    Already have an account?{' '}
+                    <button onClick={() => setMode('signin')} className="text-white font-medium hover:underline">
+                        Sign in
+                    </button>
+                 </>
+             )}
+         </div>
+
       </div>
+
+      {/* RIGHT SIDE - VISUALS */}
+      <div className="hidden md:flex flex-1 relative items-center justify-center overflow-hidden">
+          {/* Content Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20 pointer-events-none" />
+          
+          <div className="relative z-10 p-12 max-w-2xl text-center">
+              <div className="w-20 h-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl flex items-center justify-center mx-auto mb-10 shadow-[0_0_50px_rgba(255,255,255,0.1)] animate-bounce duration-[3000ms]">
+                   <Globe size={40} className="text-indigo-300" />
+              </div>
+
+              <h2 className="text-5xl lg:text-7xl font-light text-white tracking-tighter mb-8 leading-tight text-glow">
+                  Connect beyond <br/> 
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300 font-normal">boundaries</span>
+              </h2>
+              
+              <p className="text-lg text-zinc-300 font-light leading-relaxed max-w-lg mx-auto mb-10">
+                  Experience real-time, high-fidelity AI voice translation. 
+                  Communicate effortlessly with anyone, anywhere, in any language.
+              </p>
+
+              {/* Decorative Features Grid */}
+              <div className="grid grid-cols-2 gap-4 max-w-md mx-auto text-left opacity-70">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm">
+                      <div className="flex items-center gap-2 mb-2 text-indigo-300">
+                          <Sparkles size={16} />
+                          <span className="text-xs font-bold uppercase tracking-wider">Voice Mirror</span>
+                      </div>
+                      <p className="text-xs text-zinc-300">Emotion & Prosody Transfer</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm">
+                       <div className="flex items-center gap-2 mb-2 text-indigo-300">
+                          <Globe size={16} />
+                          <span className="text-xs font-bold uppercase tracking-wider">Universal</span>
+                      </div>
+                      <p className="text-xs text-zinc-300">30+ Languages Supported</p>
+                  </div>
+              </div>
+          </div>
+      </div>
+
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Group } from '../types';
-import { Users, Search, MessageSquarePlus, Video, Trash2, Phone, Bell, Check } from 'lucide-react';
+import { Video, PlusSquare, Settings, ArrowRight, UserPlus, Disc } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 interface DashboardProps {
   currentUser: User;
@@ -10,6 +11,7 @@ interface DashboardProps {
   onCreateGroup: (name: string, members: User[]) => void;
   onDeleteGroup: (groupId: string) => void;
   onDirectCall: (contact: User) => void;
+  onEditProfile: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -19,213 +21,134 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onJoinGroup,
   onCreateGroup,
   onDeleteGroup,
-  onDirectCall
+  onDirectCall,
+  onEditProfile
 }) => {
-  const [isCreating, setIsCreating] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinId, setJoinId] = useState('');
 
-  const handleCreate = () => {
-    if (!newGroupName.trim() || selectedContacts.length === 0) return;
-    const members = contacts.filter(c => selectedContacts.includes(c.id));
-    onCreateGroup(newGroupName, [...members, currentUser]);
-    setIsCreating(false);
-    setNewGroupName('');
-    setSelectedContacts([]);
+  const handleNewMeeting = () => {
+    // Generate a new session instantly
+    const newSessionId = uuidv4().slice(0, 8); // Short ID for demo
+    onCreateGroup(`Session ${newSessionId}`, [currentUser]);
   };
 
-  const toggleContactSelection = (id: string) => {
-    setSelectedContacts(prev => 
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
+  const handleJoin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinId.trim()) return;
+    
+    // Check if group exists in local state
+    const existing = groups.find(g => g.name.includes(joinId) || g.id === joinId);
+    
+    if (existing) {
+        onJoinGroup(existing);
+    } else {
+        // Mock join: Create a placeholder group reference to "Join"
+        // In a real app, this would query Supabase for the ID
+        const mockGroup: Group = {
+            id: joinId,
+            name: `Session ${joinId}`,
+            members: [currentUser], // Will add self
+            messages: [],
+            lastActive: Date.now()
+        };
+        onJoinGroup(mockGroup);
+    }
   };
 
-  const filteredGroups = groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const renderAvatar = (avatarStr: string) => {
+    const isImage = avatarStr.startsWith('http') || avatarStr.startsWith('data:');
+    if (isImage) {
+        return <img src={avatarStr} alt="Avatar" className="w-full h-full object-cover" />;
+    }
+    return <span className="text-xl md:text-2xl">{avatarStr}</span>;
+  };
 
   return (
-    <div className="h-screen bg-slate-950 flex overflow-hidden text-slate-100 font-light">
-      {/* Sidebar - Contacts (Hidden on Mobile) */}
-      <div className="w-80 bg-slate-900/50 border-r border-white/5 flex flex-col hidden md:flex backdrop-blur-sm">
-        <div className="p-8 border-b border-white/5">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="relative">
-                <span className="text-4xl filter drop-shadow-lg">{currentUser.avatar}</span>
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-900"></div>
-            </div>
-            <div>
-              <h2 className="font-medium text-white text-lg tracking-wide">{currentUser.name}</h2>
-              <p className="text-xs text-indigo-300 uppercase tracking-widest mt-1">{currentUser.language}</p>
-            </div>
+    <div className="h-screen flex flex-col items-center relative overflow-hidden font-sans text-white">
+      
+      {/* Top Bar */}
+      <div className="w-full flex justify-between items-center p-6 z-20">
+          <div className="flex items-center gap-3 bg-white/5 p-1.5 pr-4 rounded-full border border-white/5 backdrop-blur-md cursor-pointer hover:bg-white/10 transition-colors" onClick={onEditProfile}>
+             <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10">
+                {renderAvatar(currentUser.avatar)}
+             </div>
+             <span className="text-sm font-medium text-zinc-200">{currentUser.name}</span>
           </div>
-          <button 
-            onClick={() => setIsCreating(true)}
-            className="w-full bg-indigo-600/90 hover:bg-indigo-500 text-white py-3 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 hover:scale-[1.02]"
-          >
-            <MessageSquarePlus size={18} /> <span className="font-medium text-sm">New Group</span>
+          
+          <button onClick={onEditProfile} className="p-3 bg-white/5 rounded-full border border-white/5 text-zinc-300 hover:text-white transition-colors hover:bg-white/10 group">
+              <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500" />
           </button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 space-y-1">
-          <div className="flex items-center justify-between px-2 mb-2">
-             <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Contacts</h3>
-             <Bell size={12} className="text-slate-600" />
-          </div>
-          <div className="space-y-1">
-            {contacts.map(contact => (
-              <div key={contact.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-white/5">
-                <div className="flex items-center gap-3">
-                    <span className="text-2xl w-10 h-10 flex items-center justify-center bg-white/5 rounded-full">{contact.avatar}</span>
-                    <div>
-                    <p className="text-sm font-medium text-slate-200">{contact.name}</p>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wide">{contact.language}</p>
-                    </div>
-                </div>
-                <button 
-                    onClick={() => onDirectCall(contact)}
-                    className="p-2 bg-green-500/20 text-green-400 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-green-500 hover:text-white"
-                    title="Start Call"
-                >
-                    <Phone size={14} strokeWidth={2.5} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-slate-950 relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 via-slate-950 to-slate-950 pointer-events-none" />
-        
-        {/* Header - Stacks on mobile */}
-        <div className="p-6 md:p-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4 relative z-10">
-          <div className="flex justify-between items-center">
-             <h1 className="text-3xl font-light tracking-tight text-white">Chats</h1>
-             {/* Mobile Only 'New' Button */}
-             <button onClick={() => setIsCreating(true)} className="md:hidden p-2 bg-indigo-600 rounded-full text-white">
-                <MessageSquarePlus size={20} />
-             </button>
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg px-6 z-10 -mt-10">
+          
+          {/* Time/Date Aesthetic */}
+          <div className="text-center mb-16">
+              <h1 className="text-7xl font-light tracking-tighter text-white drop-shadow-2xl">
+                  {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              </h1>
+              <p className="text-zinc-400 uppercase tracking-widest text-xs mt-4 font-medium">
+                  {new Date().toLocaleDateString([], {weekday: 'long', month: 'long', day: 'numeric'})}
+              </p>
           </div>
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-4 top-3.5 text-slate-500 w-4 h-4" />
-            <input 
-              type="text" 
-              placeholder="Search..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-white/5 rounded-2xl pl-10 pr-4 py-3 text-sm text-white focus:bg-white/10 focus:border-indigo-500/30 outline-none transition-all"
-            />
-          </div>
-        </div>
 
-        {/* Group List */}
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto relative z-10">
-          {filteredGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-slate-500 border-2 border-dashed border-white/5 rounded-3xl mx-2">
-              <MessageSquarePlus size={48} className="mb-4 opacity-30" />
-              <p className="font-light">No active conversations</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 pb-20 md:pb-0">
-              {filteredGroups.map(group => (
-                <div key={group.id} className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-5 md:p-6 hover:bg-white/[0.04] transition-all group relative hover:shadow-2xl hover:shadow-indigo-500/5">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-3 md:gap-4">
-                      <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-300 rounded-2xl flex items-center justify-center shadow-inner border border-white/5 shrink-0">
-                        <Users size={22} strokeWidth={1.5} />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-white text-base md:text-lg tracking-wide truncate">{group.name}</h3>
-                        <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">{group.members.length} participants</p>
-                      </div>
-                    </div>
-                    <button 
-                       onClick={() => onDeleteGroup(group.id)}
-                       className="text-slate-600 hover:text-red-400 p-2 transition-all rounded-full hover:bg-white/5"
-                    >
-                        <Trash2 size={18} />
-                    </button>
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-6 w-full">
+              
+              {/* New Meeting */}
+              <button 
+                onClick={handleNewMeeting}
+                className="flex flex-col items-center justify-center gap-4 bg-orange-600/90 hover:bg-orange-500 p-8 rounded-[2rem] shadow-[0_20px_40px_rgba(234,88,12,0.2)] transition-all hover:scale-[1.02] active:scale-95 group backdrop-blur-sm border border-orange-500/20"
+              >
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                      <Video size={32} className="text-white" />
                   </div>
-                  
-                  <div className="flex items-center justify-between mt-6 md:mt-8">
-                     <div className="flex -space-x-3 overflow-hidden">
-                        {group.members.slice(0, 4).map((m, i) => (
-                           <div key={i} className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-slate-800 border-4 border-slate-950 flex items-center justify-center text-sm md:text-lg shadow-lg shrink-0" title={m.name}>
-                              {m.avatar}
-                           </div>
-                        ))}
-                     </div>
-                     <button 
-                        onClick={() => onJoinGroup(group)}
-                        className="bg-white/5 hover:bg-indigo-600 hover:text-white text-indigo-300 border border-indigo-500/30 px-5 py-2 md:px-6 md:py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all whitespace-nowrap"
-                     >
-                        <Video size={16} strokeWidth={2} /> <span className="hidden sm:inline">Join Call</span> <span className="sm:hidden">Join</span>
-                     </button>
+                  <span className="font-medium text-lg">New Session</span>
+              </button>
+
+              {/* Join */}
+              <button 
+                onClick={() => setShowJoinModal(true)}
+                className="flex flex-col items-center justify-center gap-4 bg-indigo-600/90 hover:bg-indigo-500 p-8 rounded-[2rem] shadow-[0_20px_40px_rgba(79,70,229,0.2)] transition-all hover:scale-[1.02] active:scale-95 group backdrop-blur-sm border border-indigo-500/20"
+              >
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                      <PlusSquare size={32} className="text-white" />
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                  <span className="font-medium text-lg">Join Session</span>
+              </button>
+          </div>
+
+          <p className="mt-12 text-zinc-400 text-sm text-center max-w-xs leading-relaxed">
+             Start a new translation session or join an existing orbit ID to begin communicating.
+          </p>
+
       </div>
 
-      {/* Soft Modal for Create Group - Mobile Responsive */}
-      {isCreating && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900/90 border border-white/10 rounded-[2rem] p-6 md:p-8 w-full max-w-md shadow-2xl backdrop-blur-xl animate-in zoom-in-95 duration-200">
-            <h2 className="text-xl md:text-2xl font-light text-white mb-6">New Group Chat</h2>
-            
-            <div className="space-y-6 mb-8">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Group Name</label>
-                <input 
-                  type="text" 
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="e.g. Project Alpha Team" 
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500/50 focus:bg-black/30 transition-all"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Select Participants</label>
-                <div className="max-h-48 overflow-y-auto border border-white/10 rounded-xl bg-black/20 p-2 scrollbar-hide">
-                   {contacts.map(contact => (
-                      <div 
-                        key={contact.id}
-                        onClick={() => toggleContactSelection(contact.id)}
-                        className={`flex items-center gap-3 p-3 cursor-pointer transition-all rounded-lg mb-1 ${selectedContacts.includes(contact.id) ? 'bg-indigo-600/20 border border-indigo-500/30' : 'hover:bg-white/5 border border-transparent'}`}
-                      >
-                         <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${selectedContacts.includes(contact.id) ? 'bg-indigo-500 border-indigo-500' : 'border-slate-600'}`}>
-                            {selectedContacts.includes(contact.id) && <Check size={12} className="text-white" />}
-                         </div>
-                         <span className="text-lg">{contact.avatar}</span>
-                         <span className="text-sm text-slate-200">{contact.name}</span>
+      {/* Join Modal */}
+      {showJoinModal && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-200">
+              <div className="w-full max-w-sm bg-zinc-900/90 border border-white/10 rounded-[2rem] p-8 shadow-2xl relative backdrop-blur-2xl">
+                  <h2 className="text-2xl font-light text-white mb-6 text-center">Join Session</h2>
+                  <form onSubmit={handleJoin} className="space-y-4">
+                      <input 
+                        type="text" 
+                        value={joinId}
+                        onChange={(e) => setJoinId(e.target.value)}
+                        placeholder="Enter Session ID"
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-4 text-center text-lg outline-none focus:border-indigo-500 transition-all placeholder:text-zinc-600 text-white"
+                        autoFocus
+                      />
+                      <div className="grid grid-cols-2 gap-3 pt-4">
+                          <button type="button" onClick={() => setShowJoinModal(false)} className="py-3 rounded-xl bg-white/5 text-zinc-400 hover:bg-white/10 font-medium transition-colors">Cancel</button>
+                          <button type="submit" className="py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 font-medium shadow-lg shadow-indigo-500/20 transition-colors">Join</button>
                       </div>
-                   ))}
-                </div>
+                  </form>
               </div>
-            </div>
-
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setIsCreating(false)}
-                className="flex-1 py-3 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleCreate}
-                disabled={!newGroupName.trim() || selectedContacts.length === 0}
-                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20 transition-all"
-              >
-                Create
-              </button>
-            </div>
           </div>
-        </div>
       )}
+
     </div>
   );
 };

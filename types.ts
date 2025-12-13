@@ -39,6 +39,7 @@ export interface User {
   name: string;
   avatar: string; // Emoji or URL
   language: Language;
+  voice?: string; // TTS Voice Name (e.g. Fenrir, Kore)
 }
 
 export interface ChatMessage {
@@ -49,6 +50,7 @@ export interface ChatMessage {
   translatedText?: string; // Localized for the viewer
   timestamp: number;
   status: MessageStatus;
+  isDirect?: boolean; // If true, bypass translation
 }
 
 export interface Group {
@@ -57,4 +59,13 @@ export interface Group {
   members: User[]; // Includes the local user
   messages: ChatMessage[];
   lastActive: number;
+}
+
+export interface VoiceTrainingData {
+  id?: string;
+  user_id: string;
+  original_text: string;
+  audio_url?: string;
+  created_at?: string;
+  style_tag?: 'singing' | 'rapping' | 'speaking';
 }
